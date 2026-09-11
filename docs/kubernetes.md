@@ -56,8 +56,8 @@ A [Dockerfile](../Dockerfile) at the repo root builds a Node 22 Alpine image tha
 
 ```bash
 docker build -t sample-nodejs:1.0.0 .
-# Push to your registry, then point the chart at it:
-# helm install ... --set image.repository=YOUR_REGISTRY/sample-nodejs --set image.tag=1.0.0
+# CI pushes to ghcr.io/<owner>/<repo>. Point the chart at that image:
+# helm install ... --set image.repository=ghcr.io/<owner>/<repo> --set image.tag=1.0.0
 ```
 
 ## Install / upgrade

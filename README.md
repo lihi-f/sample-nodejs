@@ -4,15 +4,14 @@
 
 ```
 .
-├── app.js                 # Express app
+├── app.js
 ├── package.json
-├── Dockerfile             # image (build from repo root)
-├── helm/                  # Helm chart for this app (Chart.yaml)
-│   ├── Chart.yaml
-│   ├── values.yaml
-│   └── templates/
+├── Dockerfile
+├── .github/workflows/ci-cd.yml
+├── helm/
 └── docs/
-    └── kubernetes.md      # how and why we deploy
+    ├── kubernetes.md
+    └── ci-cd.md
 ```
 
 ## Overview
@@ -29,6 +28,10 @@ A lightweight Node.js application. It features basic web endpoints, Prometheus m
 ## Kubernetes
 
 The app deploys with Helm as a **Deployment** (stateless HTTP service). See [docs/kubernetes.md](docs/kubernetes.md) for the chart, probes, Service, Ingress, resources, and ConfigMap/Secret usage.
+
+## CI/CD
+
+GitHub Actions bumps semver on `main`, runs Semgrep SAST and Trivy image scanning, then pushes to private GHCR only if those gates pass. See [docs/ci-cd.md](docs/ci-cd.md).
 
 ## Prerequisites
 
