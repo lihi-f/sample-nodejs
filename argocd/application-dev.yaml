@@ -1,25 +1,25 @@
----
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: sample-nodejs-dev
-  namespace: argocd
-spec:
-  project: default
-  source:
-    repoURL: https://github.com/lihi-f/sample-nodejs.git
-    targetRevision: dev
-    path: helm
-    helm:
-      valueFiles:
-        - values.yaml
-        - values-dev.yaml
-  destination:
-    server: https://kubernetes.default.svc
-    namespace: sample-nodejs-dev
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
-    syncOptions:
-      - CreateNamespace=true
+# ---
+# apiVersion: argoproj.io/v1alpha1
+# kind: Application
+# metadata:
+#   name: sample-nodejs-dev
+#   namespace: argocd
+# spec:
+#   project: default
+#   source:
+#     repoURL: https://github.com/lihi-f/sample-nodejs.git
+#     targetRevision: dev
+#     path: helm
+#     helm:
+#       valueFiles:
+#         - values.yaml
+#         - values-dev.yaml
+#   destination:
+#     server: https://kubernetes.default.svc
+#     namespace: sample-nodejs-dev
+#   syncPolicy:
+#     automated:
+#       prune: true
+#       selfHeal: true
+#     syncOptions:
+#       - CreateNamespace=true
