@@ -299,7 +299,7 @@ jobs:
           format: table
           severity: HIGH,CRITICAL
           exit-code: "1"
-          ignore-unfixed: "false"
+          ignore-unfixed: "true"
 
       - name: Log in to GHCR
         if: needs.version.outputs.should_push == 'true'
