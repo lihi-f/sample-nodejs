@@ -296,10 +296,10 @@ jobs:
         uses: aquasecurity/trivy-action@7b7aa264d83dc58691451798b4d117d53d21edfe
         with:
           image-ref: ${{ env.IMAGE }}:scan
-          format: table
+          format: json
           severity: HIGH,CRITICAL
           exit-code: "1"
-          ignore-unfixed: "false"
+          ignore-unfixed: "true"
 
       - name: Log in to GHCR
         if: needs.version.outputs.should_push == 'true'

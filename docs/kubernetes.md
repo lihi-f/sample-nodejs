@@ -108,9 +108,8 @@ helm uninstall sample-nodejs
 
 ## Growing later
 
-Keep this chart small. Add pieces when you need them:
-
-- **HPA** if load grows (CPU/memory on the existing requests).
+- reqeuest\limits - need better understanding of application behavior, currently default.
+- **PrometheusRules** alerts based on application metrics.
 - **TLS** on Ingress (`ingress.tls` in values).
 - **Secrets** as above, or External Secrets, for pull secret.
 - **HPA / PDB / NetworkPolicy** when the cluster and traffic justify them.
