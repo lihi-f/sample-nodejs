@@ -50,7 +50,7 @@ Defaults live in `values.yaml`. Change them there or with `--set` so the chart c
 
 ## Image
 
-A [Dockerfile](../app/Dockerfile) builds a Node 22 Alpine image that runs as the `node` user.
+A [Dockerfile](../app/Dockerfile) installs production dependencies in a Node 22 build stage and runs the app as the non-root distroless Node 22 runtime. Kubernetes readiness and liveness probes provide health checks; no shell or package manager is included in the production image.
 
 ```bash
 docker build -t sample-nodejs:1.0.0 .

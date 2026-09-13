@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main]
+    branches: [dev]
   workflow_dispatch:
     inputs:
       bump:
@@ -172,6 +172,7 @@ jobs:
           context: ${{ env.APP_DIR }}
           file: ${{ env.APP_DIR }}/Dockerfile
           load: true
+          pull: true
           platforms: linux/amd64
           tags: sample-nodejs:scan
           build-args: |
@@ -179,13 +180,13 @@ jobs:
             REVISION=${{ needs.metadata.outputs.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      # - uses: aquasecurity/trivy-action@v0.36.0
-      #   with:
-      #     image-ref: sample-nodejs:scan
-      #     format: table
-      #     severity: HIGH,CRITICAL
-      #     exit-code: "1"
-      #     ignore-unfixed: "false"
+      - uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: sample-nodejs:scan
+          format: table
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: "false"
 
   publish:
     name: Publish image
@@ -211,6 +212,7 @@ jobs:
           context: ${{ env.APP_DIR }}
           file: ${{ env.APP_DIR }}/Dockerfile
           push: true
+          pull: true
           platforms: linux/amd64
           tags: |
             ${{ needs.metadata.outputs.image }}:${{ needs.metadata.outputs.sha }}

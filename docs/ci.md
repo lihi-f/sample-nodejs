@@ -16,6 +16,8 @@ detect changes
 
 Application changes run unit tests, `npm audit` (critical findings fail), Semgrep SAST (ERROR findings fail), a Docker build, and a Trivy image scan (HIGH and CRITICAL findings fail). Helm or ArgoCD changes run Helm lint and render validation. A pull request never pushes an image or changes GitOps state.
 
+The Docker image is multi-stage: npm is used only in the Node 22 builder to install production dependencies, while the final image is the non-root distroless Node 22 runtime. This prevents npm and its bundled packages from being shipped or scanned in production. Both CI builds use `pull: true` so security updates to the base images are not hidden by the build cache.
+
 After all application gates pass on `main`, CI publishes the private GHCR image with two tags:
 
 - `:<semver>` is the human-readable release tag.
