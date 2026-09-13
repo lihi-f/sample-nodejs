@@ -35,12 +35,12 @@ jobs:
       app: ${{ steps.filter.outputs.app }}
       helm: ${{ steps.filter.outputs.helm }}
     steps:
-      - uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
       - id: filter
-        uses: dorny/paths-filter@de93016b73f6a3bc4050c69b03572c24a8c69b74
+        uses: dorny/paths-filter@v4.0.3
         with:
           filters: |
             app:
@@ -61,10 +61,10 @@ jobs:
       version: ${{ steps.meta.outputs.version }}
       release: ${{ steps.meta.outputs.release }}
     steps:
-      - uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+      - uses: actions/setup-node@v7.0.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -94,10 +94,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+      - uses: actions/setup-node@v7.0.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -114,10 +114,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+      - uses: actions/setup-node@v7.0.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -132,7 +132,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - run: |
@@ -146,7 +146,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: azure/setup-helm@v4
@@ -163,11 +163,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435
-      - uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83
+      - uses: docker/setup-buildx-action@v4.3.0
+      - uses: docker/build-push-action@v7.3.0
         with:
           context: ${{ env.APP_DIR }}
           file: ${{ env.APP_DIR }}/Dockerfile
@@ -179,7 +179,7 @@ jobs:
             REVISION=${{ needs.metadata.outputs.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      - uses: aquasecurity/trivy-action@7b7aa264d83dc58691451798b4d117d53d21edfe
+      - uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: sample-nodejs:scan
           format: table
@@ -197,16 +197,16 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435
-      - uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1
+      - uses: docker/setup-buildx-action@v4.3.0
+      - uses: docker/login-action@v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83
+      - uses: docker/build-push-action@v7.3.0
         with:
           context: ${{ env.APP_DIR }}
           file: ${{ env.APP_DIR }}/Dockerfile
@@ -235,8 +235,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7.0.0
         with:
           node-version: ${{ env.NODE_VERSION }}
       - env:
