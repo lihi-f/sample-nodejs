@@ -281,7 +281,7 @@ jobs:
       - name: Build image for scanning
         uses: docker/build-push-action@v6
         with:
-          context: ./${{ env.APP_DIR }}
+          context: ${{ env.APP_DIR }}
           file: ./Dockerfile
           load: true
           platforms: linux/amd64
@@ -325,7 +325,7 @@ jobs:
         if: needs.version.outputs.should_push == 'true'
         uses: docker/build-push-action@v6
         with:
-          context: ./${{ env.APP_DIR }}
+          context: ${{ env.APP_DIR }}
           file: ./Dockerfile
           push: true
           sbom: true
