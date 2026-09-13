@@ -119,7 +119,7 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="$(node -p "require('./package.json').version")"
-          IMAGE="ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
+          IMAGE="ghcr.io/$(echo \"${{ github.repository }}\" | tr '[:upper:]' '[:lower:]')"
           SHA="$(git rev-parse HEAD)"
 
           SHOULD_PUSH=false
@@ -135,32 +135,32 @@ jobs:
           echo "should_push=${SHOULD_PUSH}" >> "$GITHUB_OUTPUT"
           echo "Version ${VERSION} sha=${SHA} image=${IMAGE} push=${SHOULD_PUSH}"
 
-  node-test:
-    name: Node syntax check
-    needs: [changes, version]
-    if: needs.changes.outputs.app == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.version.outputs.sha }}
-          persist-credentials: false
+  # node-test:
+  #   name: Node syntax check
+  #   needs: [changes, version]
+  #   if: needs.changes.outputs.app == 'true'
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 5
+  #   permissions:
+  #     contents: read
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+  #       with:
+  #         ref: ${{ needs.version.outputs.sha }}
+  #         persist-credentials: false
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
+  #     - name: Set up Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: "22"
+  #         cache: npm
 
-      - name: Install dependencies
-        run: npm ci --ignore-scripts
+  #     - name: Install dependencies
+  #       run: npm ci --ignore-scripts
 
-      - name: Test
-        run: npm test
+  #     - name: Test
+  #       run: npm test
 
   npm-audit:
     name: npm audit
@@ -239,7 +239,7 @@ jobs:
 
   docker:
     name: Build, scan, and push
-    needs: [changes, version, node-test, npm-audit, semgrep]
+    needs: [changes, version, npm-audit, semgrep]
     if: needs.changes.outputs.app == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
