@@ -6,20 +6,34 @@ The pipeline builds the [Dockerfile](../Dockerfile), runs DevSecOps gates, and o
 
 GHCR is used because a private GitHub repo gets a private package, and `GITHUB_TOKEN` is enough (`packages: write`). No Docker Hub password is stored.
 
+## When it runs
+
+Build, test, scan, and push run **only when application files change** (or on manual **Run workflow**):
+
+- `app.js`, `package.json`, `package-lock.json`, `Dockerfile`, `.dockerignore`
+
+Docs, ArgoCD manifests, and CI YAML alone do not publish an image. Helm chart edits run **Helm lint** only.
+
 ## Job graph
 
 ```
-version → sast → docker (build → Trivy → push)
+changes
+  ├─ helm-lint                          (helm/** only)
+  └─ version                            (app files)
+        ├─ node-test   ─┐
+        ├─ npm-audit   ─┼─ parallel ─ docker (build → Trivy → push)
+        └─ semgrep     ─┘
 ```
 
-`needs` ties the jobs together. If SAST fails, the image is not scanned as a release path and is **not** pushed. If Trivy fails on HIGH or CRITICAL, the push steps do not run. The scanned image is the deploy artifact; blocking the push blocks deployment.
+`node-test`, `npm-audit`, and `semgrep` start together after version metadata is ready. Docker waits for all three. Helm lint does not block the image.
 
-| Event | Version bump | SAST + Trivy | Push to GHCR |
-| --- | --- | --- | --- |
-| PR to `main` or `dev` | No | Yes | No |
-| Push to `dev` | No | Yes | `:dev` and `:<git-sha>` |
-| Push to `main` | Patch (unless `[skip ci]`) | Yes | `:<semver>` and `:<git-sha>` |
-| Actions → Run workflow on `main` | `patch` / `minor` / `major` | Yes | `:<semver>` and `:<git-sha>` |
+| Event | App files changed | Version bump | Tests + Trivy | Push to GHCR |
+| --- | --- | --- | --- | --- |
+| PR (docs/helm only) | No | Skipped | Helm lint if `helm/**` | No |
+| PR to `main` or `dev` | Yes | No | Yes (parallel) | No |
+| Push to `dev` | Yes | No | Yes | `:dev` and `:<git-sha>` |
+| Push to `main` | Yes | Patch (unless `[skip ci]`) | Yes | `:<semver>` and `:<git-sha>` |
+| Actions → Run workflow | Forced | Choice on `main` | Yes | Yes on `main`/`dev` |
 
 Concurrency is per ref (in-progress runs cancel). Jobs have timeouts. Permissions are least-privilege: `contents: write` only on version, `packages: write` / `id-token` / `security-events` only on docker.
 

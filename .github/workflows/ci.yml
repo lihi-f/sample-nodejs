@@ -25,8 +25,51 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      app: ${{ steps.paths.outputs.app }}
+      helm: ${{ steps.paths.outputs.helm }}
+    steps:
+      - name: Checkout
+        if: github.event_name != 'workflow_dispatch'
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Path filter
+        if: github.event_name != 'workflow_dispatch'
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            app:
+              - 'app.js'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'Dockerfile'
+              - '.dockerignore'
+            helm:
+              - 'helm/**'
+
+      - name: Export path flags
+        id: paths
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "app=true" >> "$GITHUB_OUTPUT"
+            echo "helm=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "app=${{ steps.filter.outputs.app }}" >> "$GITHUB_OUTPUT"
+            echo "helm=${{ steps.filter.outputs.helm }}" >> "$GITHUB_OUTPUT"
+          fi
+
   version:
     name: Version
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -92,11 +135,39 @@ jobs:
           echo "should_push=${SHOULD_PUSH}" >> "$GITHUB_OUTPUT"
           echo "Version ${VERSION} sha=${SHA} image=${IMAGE} push=${SHOULD_PUSH}"
 
-  sast:
-    name: SAST
-    needs: version
+  node-test:
+    name: Node syntax check
+    needs: [changes, version]
+    if: needs.changes.outputs.app == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.sha }}
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Test
+        run: npm test
+
+  npm-audit:
+    name: npm audit
+    needs: [changes, version]
+    if: needs.changes.outputs.app == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: read
     steps:
@@ -118,13 +189,20 @@ jobs:
       - name: npm audit (fail on critical)
         run: npm audit --audit-level=critical
 
-      - name: Helm lint
-        uses: azure/setup-helm@v4
+  semgrep:
+    name: Semgrep SAST
+    needs: [changes, version]
+    if: needs.changes.outputs.app == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          version: v3.16.4
-
-      - name: Lint Helm chart
-        run: helm lint ./helm
+          ref: ${{ needs.version.outputs.sha }}
+          persist-credentials: false
 
       - name: Semgrep SAST (fail on ERROR / critical)
         run: |
@@ -137,9 +215,32 @@ jobs:
               --error \
               .
 
+  helm-lint:
+    name: Helm lint
+    needs: changes
+    if: needs.changes.outputs.helm == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+
+      - name: Lint Helm chart
+        run: helm lint ./helm
+
   docker:
     name: Build, scan, and push
-    needs: [version, sast]
+    needs: [changes, version, node-test, npm-audit, semgrep]
+    if: needs.changes.outputs.app == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
