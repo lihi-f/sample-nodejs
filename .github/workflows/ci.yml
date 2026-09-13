@@ -57,13 +57,17 @@ jobs:
 
       - name: Export path flags
         id: paths
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          APP_CHANGED: ${{ steps.filter.outputs.app }}
+          HELM_CHANGED: ${{ steps.filter.outputs.helm }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             echo "app=true" >> "$GITHUB_OUTPUT"
             echo "helm=true" >> "$GITHUB_OUTPUT"
           else
-            echo "app=${{ steps.filter.outputs.app }}" >> "$GITHUB_OUTPUT"
-            echo "helm=${{ steps.filter.outputs.helm }}" >> "$GITHUB_OUTPUT"
+            echo "app=${APP_CHANGED}" >> "$GITHUB_OUTPUT"
+            echo "helm=${HELM_CHANGED}" >> "$GITHUB_OUTPUT"
           fi
 
   version:
@@ -116,15 +120,19 @@ jobs:
 
       - name: Export version metadata
         id: meta
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          GIT_REF: ${{ github.ref }}
+          REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
           VERSION="$(node -p "require('./package.json').version")"
-          IMAGE="ghcr.io/$(echo \"${{ github.repository }}\" | tr '[:upper:]' '[:lower:]')"
+          IMAGE="ghcr.io/$(printf '%s' "$REPOSITORY" | tr '[:upper:]' '[:lower:]')"
           SHA="$(git rev-parse HEAD)"
 
           SHOULD_PUSH=false
-          if [ "${{ github.event_name }}" != "pull_request" ]; then
-            if [ "${{ github.ref }}" = "refs/heads/main" ] || [ "${{ github.ref }}" = "refs/heads/dev" ]; then
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            if [ "$GIT_REF" = "refs/heads/main" ] || [ "$GIT_REF" = "refs/heads/dev" ]; then
               SHOULD_PUSH=true
             fi
           fi
