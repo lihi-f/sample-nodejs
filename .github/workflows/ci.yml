@@ -40,7 +40,7 @@ jobs:
     steps:
       - name: Checkout
         if: github.event_name != 'workflow_dispatch'
-        uses: actions/checkout@v4
+        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -86,7 +86,7 @@ jobs:
       should_push: ${{ steps.meta.outputs.should_push }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3
         with:
           fetch-depth: 0
 
@@ -155,7 +155,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3
         with:
           ref: ${{ needs.version.outputs.sha }}
           persist-credentials: false
@@ -185,7 +185,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3
         with:
           ref: ${{ needs.version.outputs.sha }}
           persist-credentials: false
@@ -215,7 +215,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3
         with:
           ref: ${{ needs.version.outputs.sha }}
           persist-credentials: false
@@ -241,7 +241,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3
         with:
           persist-credentials: false
 
@@ -270,7 +270,7 @@ jobs:
       SHA: ${{ needs.version.outputs.sha }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3
         with:
           ref: ${{ needs.version.outputs.sha }}
           persist-credentials: false
@@ -292,14 +292,14 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # - name: Trivy image scan (fail on HIGH and CRITICAL)
-      #   uses: aquasecurity/trivy-action@7b7aa264d83dc58691451798b4d117d53d21edfe
-      #   with:
-      #     image-ref: ${{ env.IMAGE }}:scan
-      #     format: table
-      #     severity: HIGH,CRITICAL
-      #     exit-code: "1"
-      #     ignore-unfixed: "false"
+      - name: Trivy image scan (fail on HIGH and CRITICAL)
+        uses: aquasecurity/trivy-action@7b7aa264d83dc58691451798b4d117d53d21edfe
+        with:
+          image-ref: ${{ env.IMAGE }}:scan
+          format: table
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: "false"
 
       - name: Log in to GHCR
         if: needs.version.outputs.should_push == 'true'
