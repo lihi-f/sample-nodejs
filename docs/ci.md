@@ -2,24 +2,20 @@
 
 Workflow: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
 
-The pipeline builds the [Dockerfile](../Dockerfile), runs DevSecOps gates, and only then pushes a Docker image to a **private GitHub Container Registry** package: `ghcr.io/<owner>/<repo>`.
+The pipeline builds the [Dockerfile](../Dockerfile), runs tests and only then pushes a Docker image to a private GitHub Container Registry package: `ghcr.io/<owner>/<repo>`.
 
 GHCR is used because a private GitHub repo gets a private package, and `GITHUB_TOKEN` is enough (`packages: write`). No Docker Hub password is stored.
 
 ## When it runs
 
-Build, test, scan, and push run **only when application files change** (or on manual **Run workflow**):
-
-- `app.js`, `package.json`, `package-lock.json`, `Dockerfile`, `.dockerignore`
-
-Docs, ArgoCD manifests, and CI YAML alone do not publish an image. Helm chart edits run **Helm lint** only.
+Build, test, scan, and push run **only when application files change** (or on manual **Run workflow**), Helm chart edits run **Helm lint** only.
 
 ## Job graph
 
 ```
 changes
   ├─ helm-lint                          (helm/** only)
-  └─ version                            (app files)
+  └─ version                            (app/** )
         ├─ node-test   ─┐
         ├─ npm-audit   ─┼─ parallel ─ docker (build → Trivy → push)
         └─ semgrep     ─┘
@@ -41,7 +37,7 @@ Concurrency is per ref (in-progress runs cancel). Jobs have timeouts. Permission
 
 On `main`, the workflow runs `npm version <bump> --no-git-tag-version`, then keeps Helm aligned:
 
-- [`package.json`](../package.json) `version`
+- [`app/package.json`](../app/package.json) `version`
 - [`helm/Chart.yaml`](../helm/Chart.yaml) `appVersion`
 - [`helm/values.yaml`](../helm/values.yaml) `image.tag`
 
@@ -60,7 +56,7 @@ PRs and `dev` keep the current `package.json` version. Image tags still include 
 
 - Build the image with Buildx (`load: true`) from the repo Dockerfile.
 - **Trivy** (`HIGH,CRITICAL`, `exit-code: 1`). Findings are uploaded as SARIF to the repo **Security** tab.
-- The workflow does **not** set `ignore-unfixed`. If `node:22-alpine` itself has HIGH CVEs, bump the base image (or add a tight `.trivyignore` only for a specific CVE you have accepted). Do not lower the exit code.
+- The workflow does **not** set `ignore-unfixed`. If `node:22-alpine` itself has HIGH CVEs, bump the base image (or add a tight `.trivyignore` only for a specific CVE you have accepted).
 
 A failed SAST or Trivy job is the gate: no GHCR tags are published.
 

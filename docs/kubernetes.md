@@ -2,7 +2,7 @@
 
 `helm/` **is** the Helm chart for this app (`Chart.yaml` name: `sample-nodejs`). Install it with `helm upgrade --install sample-nodejs ./helm`.
 
-This app is a small, **stateless** Express server. It serves HTTP routes, keeps Prometheus counters in memory, and does not use a database or disk. The port comes from `PORT` (default `8080`). Health endpoints already exist in the app:
+This app is a small and stateless Express server. It serves HTTP routes, keeps Prometheus counters in memory, does not use a database or disk, and has health endpoints:
 
 | Probe | HTTP path | Purpose |
 | --- | --- | --- |
@@ -13,13 +13,11 @@ Main route: `GET /my-app`. Metrics: `GET /metrics`.
 
 ## Why a Deployment (not a StatefulSet)
 
-Use a **Deployment**.
-
 - Pods are interchangeable. Nothing depends on a stable hostname or start order.
 - There is no persistent volume.
 - Rolling updates and extra replicas are the natural way to run this.
 
-A StatefulSet would add pod ordinals and volume templates this app does not need. If you later add a database or local disk, that **new** component can be a StatefulSet; this web app can stay a Deployment.
+A StatefulSet would add pod ordinals and volume templates this app does not need. If you later add a database or local disk, it can be changed to a StatefulSet.
 
 ## Chart layout
 
@@ -47,12 +45,12 @@ Defaults live in `values.yaml`. Change them there or with `--set` so the chart c
 | Service | ClusterIP: port 80 → container 8080 |
 | Ingress | Host-based HTTP entry (nginx class by default) |
 | ConfigMap | Non-secret env (`PORT`, `NODE_ENV`) |
-| Secret | Optional; enable when you add keys later |
+| Secret | Optional |
 | ServiceAccount | Dedicated identity for the pods |
 
 ## Image
 
-A [Dockerfile](../Dockerfile) at the repo root builds a Node 22 Alpine image that runs as the `node` user.
+A [Dockerfile](../app/Dockerfile) at the repo root builds a Node 22 Alpine image that runs as the `node` user.
 
 ```bash
 docker build -t sample-nodejs:1.0.0 .
@@ -114,5 +112,5 @@ Keep this chart small. Add pieces when you need them:
 
 - **HPA** if load grows (CPU/memory on the existing requests).
 - **TLS** on Ingress (`ingress.tls` in values).
-- **Secrets** as above, or External Secrets, instead of putting keys in git.
+- **Secrets** as above, or External Secrets, for pull secret.
 - **HPA / PDB / NetworkPolicy** when the cluster and traffic justify them.

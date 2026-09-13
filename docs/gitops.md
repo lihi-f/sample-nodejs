@@ -1,6 +1,6 @@
 # GitOps with ArgoCD
 
-ArgoCD deploys this app from **this repository** (not a second GitOps repo). The Helm chart in [`helm/`](../helm/) is the desired state. GitHub Actions never talks to the cluster.
+ArgoCD deploys this app from this repository to simplify the depolyment, for production use I would store the argocd manifest in a different repository. 
 
 ## What you need to do (in order)
 

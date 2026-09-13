@@ -17,6 +17,11 @@ on:
           - minor
           - major
 
+env:
+  APP_DIR: ./app
+  HELM_DIR: ./helm
+  NODE_VERSION: "22"
+
 permissions:
   contents: read
 
@@ -47,11 +52,7 @@ jobs:
         with:
           filters: |
             app:
-              - 'app.js'
-              - 'package.json'
-              - 'package-lock.json'
-              - 'Dockerfile'
-              - '.dockerignore'
+              - 'app/**'
             helm:
               - 'helm/**'
 
@@ -92,7 +93,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "$NODE_VERSION"
           cache: npm
 
       - name: Bump version on main
@@ -107,13 +108,13 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          npm version "$BUMP" --no-git-tag-version
-          VERSION="$(node -p "require('./package.json').version")"
+          npm version "$BUMP" --no-git-tag-version --prefix "$APP_DIR"
+          VERSION="$(node -p "require('./$APP_DIR/package.json').version")"
 
-          sed -i -E "s/^appVersion: .*/appVersion: \"${VERSION}\"/" helm/Chart.yaml
-          sed -i -E "s/^(  tag: ).*/\1\"${VERSION}\"/" helm/values.yaml
+          sed -i -E "s/^appVersion: .*/appVersion: \"${VERSION}\"/" "$HELM_DIR/Chart.yaml"
+          sed -i -E "s/^(  tag: ).*/\1\"${VERSION}\"/" "$HELM_DIR/values.yaml"
 
-          git add package.json package-lock.json helm/Chart.yaml helm/values.yaml
+          git add "$APP_DIR/package.json" "$APP_DIR/package-lock.json" "$HELM_DIR/Chart.yaml" "$HELM_DIR/values.yaml"
           git commit -m "chore: bump version to ${VERSION} [skip ci]"
           git tag -a "v${VERSION}" -m "v${VERSION}"
           git push origin HEAD --tags
@@ -126,7 +127,7 @@ jobs:
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
-          VERSION="$(node -p "require('./package.json').version")"
+          VERSION="$(node -p "require('./$APP_DIR/package.json').version")"
           IMAGE="ghcr.io/$(printf '%s' "$REPOSITORY" | tr '[:upper:]' '[:lower:]')"
           SHA="$(git rev-parse HEAD)"
 
@@ -143,35 +144,35 @@ jobs:
           echo "should_push=${SHOULD_PUSH}" >> "$GITHUB_OUTPUT"
           echo "Version ${VERSION} sha=${SHA} image=${IMAGE} push=${SHOULD_PUSH}"
 
-  # node-test:
-  #   name: Node syntax check
-  #   needs: [changes, version]
-  #   if: needs.changes.outputs.app == 'true'
-  #   runs-on: ubuntu-latest
-  #   timeout-minutes: 5
-  #   permissions:
-  #     contents: read
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v4
-  #       with:
-  #         ref: ${{ needs.version.outputs.sha }}
-  #         persist-credentials: false
+  node-test:
+    name: Node syntax check
+    needs: [changes, version]
+    if: needs.changes.outputs.app == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.sha }}
+          persist-credentials: false
 
-  #     - name: Set up Node.js
-  #       uses: actions/setup-node@v4
-  #       with:
-  #         node-version: "22"
-  #         cache: npm
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "$NODE_VERSION"
+          cache: npm
 
-  #     - name: Install dependencies
-  #       run: npm ci --ignore-scripts
+      - name: Install dependencies
+        run: npm ci --ignore-scripts --prefix "$APP_DIR"
 
-  #     - name: Test
-  #       run: npm test
+      - name: Test
+        run: npm test --prefix "$APP_DIR"
 
   npm-audit:
-    name: npm audit
+    name: Npm audit
     needs: [changes, version]
     if: needs.changes.outputs.app == 'true'
     runs-on: ubuntu-latest
@@ -192,10 +193,10 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci --ignore-scripts
+        run: npm ci --ignore-scripts --prefix "$APP_DIR"
 
       - name: npm audit (fail on critical)
-        run: npm audit --audit-level=critical
+        run: npm audit --audit-level=critical --prefix "$APP_DIR"
 
   semgrep:
     name: Semgrep SAST
@@ -243,11 +244,11 @@ jobs:
           version: v3.16.4
 
       - name: Lint Helm chart
-        run: helm lint ./helm
+        run: helm lint $HELM_DIR
 
   docker:
     name: Build, scan, and push
-    needs: [changes, version, npm-audit, semgrep]
+    needs: [changes, version, node-test, npm-audit, semgrep]
     if: needs.changes.outputs.app == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -284,31 +285,14 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # - name: Trivy image scan (fail on HIGH and CRITICAL)
-      #   uses: aquasecurity/trivy-action@7b7aa264d83dc58691451798b4d117d53d21edfe
-      #   with:
-      #     image-ref: ${{ env.IMAGE }}:scan
-      #     format: table
-      #     severity: HIGH,CRITICAL
-      #     exit-code: "1"
-      #     ignore-unfixed: "false"
-
-      # - name: Trivy SARIF report
-      #   if: always()
-      #   uses: aquasecurity/trivy-action@7b7aa264d83dc58691451798b4d117d53d21edfe
-      #   with:
-      #     image-ref: ${{ env.IMAGE }}:scan
-      #     format: sarif
-      #     output: trivy-results.sarif
-      #     severity: HIGH,CRITICAL
-      #     ignore-unfixed: "false"
-
-      # - name: Upload Trivy SARIF
-      #   if: always() && hashFiles('trivy-results.sarif') != ''
-      #   uses: github/codeql-action/upload-sarif@v3
-      #   with:
-      #     sarif_file: trivy-results.sarif
-      #     category: trivy
+      - name: Trivy image scan (fail on HIGH and CRITICAL)
+        uses: aquasecurity/trivy-action@7b7aa264d83dc58691451798b4d117d53d21edfe
+        with:
+          image-ref: ${{ env.IMAGE }}:scan
+          format: table
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: "false"
 
       - name: Log in to GHCR
         if: needs.version.outputs.should_push == 'true'
