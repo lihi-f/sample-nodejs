@@ -282,7 +282,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ${{ env.APP_DIR }}
-          file: ./Dockerfile
+          file: ./${{ env.APP_DIR }}/Dockerfile
           load: true
           platforms: linux/amd64
           tags: ${{ env.IMAGE }}:scan
@@ -326,7 +326,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ${{ env.APP_DIR }}
-          file: ./Dockerfile
+          file: ./${{ env.APP_DIR }}/Dockerfile
           push: true
           sbom: true
           provenance: true
