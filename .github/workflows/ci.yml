@@ -179,13 +179,13 @@ jobs:
             REVISION=${{ needs.metadata.outputs.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      # - uses: aquasecurity/trivy-action@v0.36.0
-      #   with:
-      #     image-ref: sample-nodejs:scan
-      #     format: table
-      #     severity: HIGH,CRITICAL
-      #     exit-code: "1"
-      #     ignore-unfixed: "false"
+      - uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: sample-nodejs:scan
+          format: table
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: "true"
 
   publish:
     name: Publish image
