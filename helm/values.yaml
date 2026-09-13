@@ -5,10 +5,13 @@ nameOverride: ""
 fullnameOverride: ""
 
 image:
-  # CI/CD pushes to ghcr.io/<github.repository> (private GHCR). Override when installing.
+  # CI/CD pushes to ghcr.io/<github.repository> (private GHCR). Override in values-prod.yaml / values-dev.yaml.
   repository: sample-nodejs
   tag: "1.0.0"
   pullPolicy: IfNotPresent
+
+# Private GHCR: create a pull secret in the namespace and list it here (see docs/gitops.md).
+imagePullSecrets: []
 
 replicaCount: 2
 

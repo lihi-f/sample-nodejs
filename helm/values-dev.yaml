@@ -1,0 +1,9 @@
+# Dev overlay for ArgoCD (dev branch). Replace OWNER with the GitHub org or user.
+image:
+  repository: ghcr.io/OWNER/sample-nodejs
+  tag: "dev"
+  pullPolicy: Always
+
+# Uncomment after creating a GHCR pull secret in namespace sample-nodejs-dev.
+# imagePullSecrets:
+#   - name: ghcr-pull

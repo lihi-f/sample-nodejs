@@ -1,6 +1,6 @@
 # CI/CD (GitHub Actions)
 
-Workflow: [`.github/workflows/ci-cd.yml`](../.github/workflows/ci-cd.yml)
+Workflow: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
 
 The pipeline builds the [Dockerfile](../Dockerfile), runs DevSecOps gates, and only then pushes a Docker image to a **private GitHub Container Registry** package: `ghcr.io/<owner>/<repo>`.
 
@@ -72,3 +72,5 @@ helm upgrade --install sample-nodejs ./helm \
   --set image.repository=ghcr.io/<owner>/<repo> \
   --set image.tag=<semver>
 ```
+
+Production deploys should go through **ArgoCD**, not this command. See [gitops.md](gitops.md).

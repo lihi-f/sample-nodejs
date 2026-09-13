@@ -7,11 +7,13 @@
 ├── app.js
 ├── package.json
 ├── Dockerfile
-├── .github/workflows/ci-cd.yml
+├── .github/workflows/ci.yml
 ├── helm/
+├── argocd/
 └── docs/
     ├── kubernetes.md
-    └── ci-cd.md
+    ├── ci-cd.md
+    └── gitops.md
 ```
 
 ## Overview
@@ -32,6 +34,8 @@ The app deploys with Helm as a **Deployment** (stateless HTTP service). See [doc
 ## CI/CD
 
 GitHub Actions bumps semver on `main`, runs Semgrep SAST and Trivy image scanning, then pushes to private GHCR only if those gates pass. See [docs/ci-cd.md](docs/ci-cd.md).
+
+Kubernetes deploys through **ArgoCD auto-sync** of the Helm chart in this repo (no deploy job in CI). See [docs/gitops.md](docs/gitops.md).
 
 ## Prerequisites
 

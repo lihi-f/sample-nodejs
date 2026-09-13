@@ -1,0 +1,8 @@
+# Production overlay for ArgoCD (main). Replace OWNER with the GitHub org or user.
+image:
+  repository: ghcr.io/OWNER/sample-nodejs
+  pullPolicy: IfNotPresent
+
+# Uncomment after creating a GHCR pull secret in namespace sample-nodejs.
+# imagePullSecrets:
+#   - name: ghcr-pull
