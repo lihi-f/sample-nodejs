@@ -2,6 +2,60 @@
 
 ArgoCD deploys this app from **this repository** (not a second GitOps repo). The Helm chart in [`helm/`](../helm/) is the desired state. GitHub Actions never talks to the cluster.
 
+## What you need to do (in order)
+
+Repo URL is already `https://github.com/lihi-f/sample-nodejs.git`. Image is `ghcr.io/lihi-f/sample-nodejs`.
+
+1. **GitHub Actions**
+   - Settings → Actions → General → Workflow permissions: **Read and write**.
+   - Push to `dev` or `main` and wait until CI is green and a package exists under **Packages** (`ghcr.io/lihi-f/sample-nodejs`). Confirm it is **private**.
+
+2. **Kubernetes + ArgoCD**
+   - Have a cluster (`kubectl` works).
+   - Install ArgoCD into namespace `argocd` (official install).
+   - If the GitHub repo is private: ArgoCD UI → Settings → Repositories → add `https://github.com/lihi-f/sample-nodejs.git` with a read-only PAT (`repo` scope).
+
+3. **GHCR pull secret** (private image)
+
+```bash
+kubectl create namespace sample-nodejs
+kubectl create namespace sample-nodejs-dev
+
+# PAT with read:packages (and SSO authorized if the org requires it)
+kubectl create secret docker-registry ghcr-pull \
+  --namespace sample-nodejs \
+  --docker-server=ghcr.io \
+  --docker-username=lihi-f \
+  --docker-password=YOUR_GITHUB_PAT \
+  --docker-email=you@example.com
+
+kubectl create secret docker-registry ghcr-pull \
+  --namespace sample-nodejs-dev \
+  --docker-server=ghcr.io \
+  --docker-username=lihi-f \
+  --docker-password=YOUR_GITHUB_PAT \
+  --docker-email=you@example.com
+```
+
+Helm overlays already reference `imagePullSecrets: [ghcr-pull]`.
+
+4. **Register the apps once** (not from CI)
+
+```bash
+kubectl apply -n argocd -f argocd/
+```
+
+5. **Check**
+
+```bash
+kubectl -n argocd get applications
+# UI: port-forward svc/argocd-server -n argocd 8080:443
+kubectl -n sample-nodejs get pods,svc,ingress
+kubectl -n sample-nodejs-dev get pods
+```
+
+After that, every green CI run on `main` updates Helm `image.tag` and ArgoCD auto-syncs. On `dev`, CI pushes `:dev` and ArgoCD uses `pullPolicy: Always`.
+
 ## Why the app repo, not a separate GitOps repo
 
 | Option | When it fits |
@@ -27,36 +81,7 @@ CI: version bump (helm tag) + SAST + Trivy + GHCR push
 ArgoCD auto-sync → Kubernetes  →  pull GHCR
 ```
 
-## Bootstrap (once)
-
-1. Install ArgoCD in the cluster (official install into namespace `argocd`).
-2. Replace `OWNER/sample-nodejs` in [`argocd/application.yaml`](../argocd/application.yaml), [`argocd/application-dev.yaml`](../argocd/application-dev.yaml), [`helm/values-prod.yaml`](../helm/values-prod.yaml), and [`helm/values-dev.yaml`](../helm/values-dev.yaml).
-3. If this GitHub repo is **private**, add it in ArgoCD (Settings → Repositories) with a read-only token.
-4. Apply the Application CRs (not from CI):
-
-```bash
-kubectl apply -n argocd -f argocd/
-```
-
 | Application | Branch | Helm values | Namespace |
 | --- | --- | --- | --- |
 | `sample-nodejs` | `main` | `values.yaml` + `values-prod.yaml` | `sample-nodejs` |
 | `sample-nodejs-dev` | `dev` | `values.yaml` + `values-dev.yaml` | `sample-nodejs-dev` |
-
-Prod uses the semver tag from [`helm/values.yaml`](../helm/values.yaml) (updated by CI). Dev uses tag `dev` and `pullPolicy: Always` so a newly pushed `:dev` image is pulled.
-
-## Private GHCR
-
-Create a pull secret in each app namespace, then uncomment `imagePullSecrets` in the env values file:
-
-```bash
-kubectl create namespace sample-nodejs
-kubectl create secret docker-registry ghcr-pull \
-  --namespace sample-nodejs \
-  --docker-server=ghcr.io \
-  --docker-username=GITHUB_USER \
-  --docker-password=GITHUB_TOKEN \
-  --docker-email=you@example.com
-```
-
-The Deployment already mounts `imagePullSecrets` when that list is set.

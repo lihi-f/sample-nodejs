@@ -52,6 +52,14 @@ A failed SAST or Trivy job is the gate: no GHCR tags are published.
 
 A green run means the image was built, scanned clean at those severities, and (on `main`/`dev` pushes) pushed with SBOM and provenance.
 
+CI does not deploy. After a green push, **ArgoCD auto-sync** applies Helm from git. Follow [gitops.md](gitops.md) (Actions permissions, GHCR pull secret, `kubectl apply -n argocd -f argocd/`).
+
+## Image and pipeline practices
+
+Dockerfile: `NODE_ENV=production`, `npm ci --omit=dev --ignore-scripts`, non-root `USER node`, OCI labels, `HEALTHCHECK` on `/live`. `.dockerignore` keeps git, Helm, docs, and CI files out of the context.
+
+Workflow: least-privilege permissions, no credential persistence on scan jobs, Helm lint, Semgrep in a pinned scanner image, Trivy HIGH/CRITICAL gate, GHCR push only after that, SBOM/provenance, GHA layer cache. In-progress runs cancel on pull requests only (not on `main`/`dev` pushes).
+
 ## GitHub settings
 
 1. **Actions** → workflow permissions: allow read/write (needed to bump version and push packages).

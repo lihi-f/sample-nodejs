@@ -1,5 +1,4 @@
-# Bootstrap once: kubectl apply -n argocd -f argocd/
-# Replace OWNER/sample-nodejs with this GitHub repository.
+---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -8,7 +7,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/OWNER/sample-nodejs.git
+    repoURL: https://github.com/lihi-f/sample-nodejs.git
     targetRevision: dev
     path: helm
     helm:
