@@ -5,7 +5,7 @@ nameOverride: ""
 fullnameOverride: ""
 
 image:
-  # CI/CD pushes to ghcr.io/<github.repository> (private GHCR). Override in values-prod.yaml / values-dev.yaml.
+  # CI/CD commits an immutable commit-SHA tag after publishing to private GHCR.
   repository: sample-nodejs
   tag: "1.0.0"
   pullPolicy: IfNotPresent

@@ -1,8 +1,10 @@
 {
   "name": "sample-nodejs",
   "version": "1.0.0",
-  "main": "index.js",
-  "scripts": {},
+  "main": "app.js",
+  "scripts": {
+    "test": "node --test"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",

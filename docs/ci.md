@@ -1,77 +1,30 @@
-# CI/CD (GitHub Actions)
+# CI/CD
 
 Workflow: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
 
-The pipeline builds the [Dockerfile](../Dockerfile), runs tests and only then pushes a Docker image to a private GitHub Container Registry package: `ghcr.io/<owner>/<repo>`.
+`main` is the only release branch. Pull requests targeting `main` are validated no matter which development branch they come from. Development branches do not publish images or deploy applications.
 
-GHCR is used because a private GitHub repo gets a private package, and `GITHUB_TOKEN` is enough (`packages: write`). No Docker Hub password is stored.
-
-## When it runs
-
-Build, test, scan, and push run **only when application files change** (or on manual **Run workflow**), Helm chart edits run **Helm lint** only.
-
-## Job graph
+## Pipeline flow
 
 ```
-changes
-  ├─ helm-lint                          (helm/** only)
-  └─ version                            (app/** )
-        ├─ node-test   ─┐
-        ├─ npm-audit   ─┼─ parallel ─ docker (build → Trivy → push)
-        └─ semgrep     ─┘
+detect changes
+  ├─ test ──────────────┐
+  ├─ dependency audit ──┼─ build and Trivy scan ─ publish image ─ update GitOps state
+  ├─ Semgrep SAST ──────┘
+  └─ Helm lint/template validation
 ```
 
-`node-test`, `npm-audit`, and `semgrep` start together after version metadata is ready. Docker waits for all three. Helm lint does not block the image.
+Application changes run unit tests, `npm audit` (critical findings fail), Semgrep SAST (ERROR findings fail), a Docker build, and a Trivy image scan (HIGH and CRITICAL findings fail). Helm or ArgoCD changes run Helm lint and render validation. A pull request never pushes an image or changes GitOps state.
 
-| Event | App files changed | Version bump | Tests + Trivy | Push to GHCR |
-| --- | --- | --- | --- | --- |
-| PR (docs/helm only) | No | Skipped | Helm lint if `helm/**` | No |
-| PR to `main` or `dev` | Yes | No | Yes (parallel) | No |
-| Push to `dev` | Yes | No | Yes | `:dev` and `:<git-sha>` |
-| Push to `main` | Yes | Patch (unless `[skip ci]`) | Yes | `:<semver>` and `:<git-sha>` |
-| Actions → Run workflow | Forced | Choice on `main` | Yes | Yes on `main`/`dev` |
+After all application gates pass on `main`, CI publishes the private GHCR image with two tags:
 
-Concurrency is per ref (in-progress runs cancel). Jobs have timeouts. Permissions are least-privilege: `contents: write` only on version, `packages: write` / `id-token` / `security-events` only on docker.
+- `:<semver>` is the human-readable release tag.
+- `:<commit-sha>` is the immutable deployment tag.
 
-## Version bumping
+CI then commits the next SemVer package/chart version and updates `helm/values.yaml` to the commit-SHA image tag. ArgoCD sees that commit and deploys the exact image that passed CI. The workflow creates the matching annotated Git tag. The default release is a patch bump; a manual workflow run on `main` can choose minor or major.
 
-On `main`, the workflow runs `npm version <bump> --no-git-tag-version`, then keeps Helm aligned:
+There is no `kubectl`, `helm upgrade`, or `argocd app sync` command in CI. GitHub Actions builds and verifies; ArgoCD reconciles the committed Helm desired state.
 
-- [`app/package.json`](../app/package.json) `version`
-- [`helm/Chart.yaml`](../helm/Chart.yaml) `appVersion`
-- [`helm/values.yaml`](../helm/values.yaml) `image.tag`
+## Registry and permissions
 
-It commits `chore: bump version to X.Y.Z [skip ci]`, creates annotated tag `vX.Y.Z`, and pushes. `[skip ci]` plus GitHub’s rule that `GITHUB_TOKEN` pushes do not start a new workflow avoids bump loops.
-
-PRs and `dev` keep the current `package.json` version. Image tags still include the git SHA (immutable).
-
-## DevSecOps gates
-
-**SAST (fail the pipeline on critical / ERROR)**
-
-- **Semgrep** with `p/javascript` and `p/owasp-top-ten`, `--severity ERROR --error`. Semgrep’s highest severity is ERROR; that is treated as critical here.
-- **npm audit --audit-level=critical** for known critical issues in npm dependencies (SCA).
-
-**Image scan (fail the pipeline on high)**
-
-- Build the image with Buildx (`load: true`) from the repo Dockerfile.
-- **Trivy** (`HIGH,CRITICAL`, `exit-code: 1`). Findings are uploaded as SARIF to the repo **Security** tab.
-- The workflow does **not** set `ignore-unfixed`. If `node:22-alpine` itself has HIGH CVEs, bump the base image (or add a tight `.trivyignore` only for a specific CVE you have accepted).
-
-A failed SAST or Trivy job is the gate: no GHCR tags are published.
-
-A green run means the image was built, scanned clean at those severities, and (on `main`/`dev` pushes) pushed with SBOM and provenance.
-
-CI does not deploy. After a green push, **ArgoCD auto-sync** applies Helm from git. Follow [gitops.md](gitops.md) (Actions permissions, GHCR pull secret, `kubectl apply -n argocd -f argocd/`).
-
-## Image and pipeline practices
-
-Dockerfile: `NODE_ENV=production`, `npm ci --omit=dev --ignore-scripts`, non-root `USER node`, OCI labels, `HEALTHCHECK` on `/live`. `.dockerignore` keeps git, Helm, docs, and CI files out of the context.
-
-Workflow: least-privilege permissions, no credential persistence on scan jobs, Helm lint, Semgrep in a pinned scanner image, Trivy HIGH/CRITICAL gate, GHCR push only after that, SBOM/provenance, GHA layer cache. In-progress runs cancel on pull requests only (not on `main`/`dev` pushes).
-
-## GitHub settings
-
-1. **Actions** → workflow permissions: allow read/write (needed to bump version and push packages).
-2. **Packages**: after the first push, confirm the package is **private**. Grant `GITHUB_TOKEN` `packages: write` (already set on the docker job).
-3. **Security** → Code scanning: Trivy SARIF appears after a scan (including failed scans, because upload uses `if: always()`).
+GHCR remains private. The publish job has only `packages: write`; the final GitOps-update job has only `contents: write`. All other jobs use the workflow's read-only default. Kubernetes requires the `ghcr-pull` image pull secret described in [GitOps setup](gitops.md).

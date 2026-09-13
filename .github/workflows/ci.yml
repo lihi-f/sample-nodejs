@@ -1,25 +1,22 @@
-name: CI/CD
+name: CI
 
 on:
   pull_request:
-    branches: [main, dev]
+    branches: [main]
   push:
-    branches: [main, dev]
+    branches: [main]
   workflow_dispatch:
     inputs:
       bump:
-        description: Semver bump on main
+        description: Semver bump for a main release
         required: true
         default: patch
         type: choice
-        options:
-          - patch
-          - minor
-          - major
+        options: [patch, minor, major]
 
 env:
-  APP_DIR: ./app
-  HELM_DIR: ./helm
+  APP_DIR: app
+  HELM_DIR: helm
   NODE_VERSION: "22"
 
 permissions:
@@ -35,306 +32,224 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     outputs:
-      app: ${{ steps.paths.outputs.app }}
-      helm: ${{ steps.paths.outputs.helm }}
+      app: ${{ steps.filter.outputs.app }}
+      helm: ${{ steps.filter.outputs.helm }}
     steps:
-      - name: Checkout
-        if: github.event_name != 'workflow_dispatch'
-        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3
+      - uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3
         with:
           persist-credentials: false
           fetch-depth: 0
-
-      - name: Path filter
-        if: github.event_name != 'workflow_dispatch'
-        uses: dorny/paths-filter@v3
-        id: filter
+      - id: filter
+        uses: dorny/paths-filter@de93016b73f6a3bc4050c69b03572c24a8c69b74
         with:
           filters: |
             app:
               - 'app/**'
             helm:
               - 'helm/**'
+              - 'argocd/**'
 
-      - name: Export path flags
-        id: paths
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          APP_CHANGED: ${{ steps.filter.outputs.app }}
-          HELM_CHANGED: ${{ steps.filter.outputs.helm }}
-        run: |
-          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            echo "app=true" >> "$GITHUB_OUTPUT"
-            echo "helm=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "app=${APP_CHANGED}" >> "$GITHUB_OUTPUT"
-            echo "helm=${HELM_CHANGED}" >> "$GITHUB_OUTPUT"
-          fi
-
-  version:
-    name: Version
+  metadata:
+    name: Release metadata
     needs: changes
-    if: needs.changes.outputs.app == 'true'
+    if: needs.changes.outputs.app == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    permissions:
-      contents: write
     outputs:
-      version: ${{ steps.meta.outputs.version }}
-      sha: ${{ steps.meta.outputs.sha }}
       image: ${{ steps.meta.outputs.image }}
-      should_push: ${{ steps.meta.outputs.should_push }}
+      sha: ${{ steps.meta.outputs.sha }}
+      version: ${{ steps.meta.outputs.version }}
+      release: ${{ steps.meta.outputs.release }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3
+      - uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3
         with:
-          fetch-depth: 0
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
         with:
-          node-version: "${{ env.NODE_VERSION }}"
-          cache-dependency-path: ${{ env.APP_DIR }}/package-lock.json
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
-
-      - name: Bump version on main
-        if: |
-          github.ref == 'refs/heads/main' &&
-          (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
-          (github.event.head_commit == null || !contains(github.event.head_commit.message, '[skip ci]'))
+          cache-dependency-path: ${{ env.APP_DIR }}/package-lock.json
+      - id: meta
         env:
-          BUMP: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.bump || 'patch' }}
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          npm version "$BUMP" --no-git-tag-version --prefix "$APP_DIR"
-          VERSION="$(node -p "require('./$APP_DIR/package.json').version")"
-
-          sed -i -E "s/^appVersion: .*/appVersion: \"${VERSION}\"/" "$HELM_DIR/Chart.yaml"
-          sed -i -E "s/^(  tag: ).*/\1\"${VERSION}\"/" "$HELM_DIR/values.yaml"
-
-          git add "$APP_DIR/package.json" "$APP_DIR/package-lock.json" "$HELM_DIR/Chart.yaml" "$HELM_DIR/values.yaml"
-          git commit -m "chore: bump version to ${VERSION} [skip ci]"
-          git tag -a "v${VERSION}" -m "v${VERSION}"
-          git push origin HEAD --tags
-
-      - name: Export version metadata
-        id: meta
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          GIT_REF: ${{ github.ref }}
+          BUMP: ${{ inputs.bump || 'patch' }}
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
-          VERSION="$(node -p "require('./$APP_DIR/package.json').version")"
-          IMAGE="ghcr.io/$(printf '%s' "$REPOSITORY" | tr '[:upper:]' '[:lower:]')"
-          SHA="$(git rev-parse HEAD)"
-
-          SHOULD_PUSH=false
-          if [ "$EVENT_NAME" != "pull_request" ]; then
-            if [ "$GIT_REF" = "refs/heads/main" ] || [ "$GIT_REF" = "refs/heads/dev" ]; then
-              SHOULD_PUSH=true
-            fi
+          VERSION="$(node -p "require('./${APP_DIR}/package.json').version")"
+          RELEASE=false
+          if [ "${{ github.ref }}" = "refs/heads/main" ] && [ "${{ github.event_name }}" != "pull_request" ]; then
+            VERSION="$(npm version "$BUMP" --no-git-tag-version --prefix "$APP_DIR" | sed 's/^v//')"
+            RELEASE=true
           fi
+          IMAGE="ghcr.io/$(printf '%s' "$REPOSITORY" | tr '[:upper:]' '[:lower:]')"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "release=$RELEASE" >> "$GITHUB_OUTPUT"
 
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
-          echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
-          echo "should_push=${SHOULD_PUSH}" >> "$GITHUB_OUTPUT"
-          echo "Version ${VERSION} sha=${SHA} image=${IMAGE} push=${SHOULD_PUSH}"
-
-  node-test:
-    name: Node syntax check
-    needs: [changes, version]
-    if: needs.changes.outputs.app == 'true'
+  test:
+    name: Test
+    needs: [changes, metadata]
+    if: needs.changes.outputs.app == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    permissions:
-      contents: read
     steps:
-      - name: Checkout
-        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3
+      - uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3
         with:
-          ref: ${{ needs.version.outputs.sha }}
           persist-credentials: false
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
         with:
-          node-version: "${{ env.NODE_VERSION }}"
-          cache-dependency-path: ${{ env.APP_DIR }}/package-lock.json
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
-
-      - name: Install dependencies
+          cache-dependency-path: ${{ env.APP_DIR }}/package-lock.json
+      - run: npm ci --ignore-scripts
         working-directory: ${{ env.APP_DIR }}
-        run: npm ci --ignore-scripts
-
-      - name: Test
+      - run: npm test
         working-directory: ${{ env.APP_DIR }}
-        run: npm test --if-present
 
   npm-audit:
-    name: Npm audit
-    needs: [changes, version]
-    if: needs.changes.outputs.app == 'true'
+    name: Dependency audit
+    needs: [changes, metadata]
+    if: needs.changes.outputs.app == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    permissions:
-      contents: read
     steps:
-      - name: Checkout
-        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3
+      - uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3
         with:
-          ref: ${{ needs.version.outputs.sha }}
           persist-credentials: false
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
         with:
-          node-version: "${{ env.NODE_VERSION }}"
-          cache-dependency-path: ${{ env.APP_DIR }}/package-lock.json
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
-
-      - name: Install dependencies
+          cache-dependency-path: ${{ env.APP_DIR }}/package-lock.json
+      - run: npm audit --omit=dev --audit-level=critical
         working-directory: ${{ env.APP_DIR }}
-        run: npm ci --ignore-scripts
-
-      - name: npm audit (fail on critical)
-        working-directory: ${{ env.APP_DIR }}
-        run: npm audit --audit-level=critical
 
   semgrep:
-    name: Semgrep SAST
-    needs: [changes, version]
-    if: needs.changes.outputs.app == 'true'
+    name: SAST
+    needs: [changes, metadata]
+    if: needs.changes.outputs.app == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    permissions:
-      contents: read
     steps:
-      - name: Checkout
-        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3
+      - uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3
         with:
-          ref: ${{ needs.version.outputs.sha }}
           persist-credentials: false
+      - run: |
+          docker run --rm -v "$PWD:/src:ro" -w /src/app semgrep/semgrep:1.110.0 \
+            semgrep scan --config p/javascript --config p/owasp-top-ten --severity ERROR --error .
 
-      - name: Semgrep SAST (fail on ERROR / critical)
-        run: |
-          docker run --rm -v "$PWD:/src:ro" -w /src \
-            semgrep/semgrep:1.110.0 \
-            semgrep scan \
-              --config p/javascript \
-              --config p/owasp-top-ten \
-              --severity ERROR \
-              --error \
-              .
-
-  helm-lint:
-    name: Helm lint
+  helm:
+    name: Validate Helm chart
     needs: changes
-    if: needs.changes.outputs.helm == 'true'
+    if: needs.changes.outputs.app == 'true' || needs.changes.outputs.helm == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    permissions:
-      contents: read
     steps:
-      - name: Checkout
-        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3
+      - uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3
         with:
           persist-credentials: false
-
-      - name: Set up Helm
-        uses: azure/setup-helm@v4
+      - uses: azure/setup-helm@v4
         with:
           version: v3.16.4
+      - run: |
+          helm lint "$HELM_DIR" -f "$HELM_DIR/values-prod.yaml"
+          helm template sample-nodejs "$HELM_DIR" -f "$HELM_DIR/values-prod.yaml" >/dev/null
 
-      - name: Lint Helm chart
-        run: helm lint $HELM_DIR
-
-  docker:
-    name: Build, scan, and push
-    needs: [changes, version, node-test, npm-audit, semgrep]
-    if: needs.changes.outputs.app == 'true'
+  build-and-scan:
+    name: Build and scan image
+    needs: [changes, metadata, test, npm-audit, semgrep, helm]
+    if: needs.changes.outputs.app == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
-      security-events: write
-    env:
-      IMAGE: ${{ needs.version.outputs.image }}
-      VERSION: ${{ needs.version.outputs.version }}
-      SHA: ${{ needs.version.outputs.sha }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3
+      - uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3
         with:
-          ref: ${{ needs.version.outputs.sha }}
           persist-credentials: false
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build image for scanning
-        uses: docker/build-push-action@v6
+      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435
+      - uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83
         with:
           context: ${{ env.APP_DIR }}
-          file: ./${{ env.APP_DIR }}/Dockerfile
+          file: ${{ env.APP_DIR }}/Dockerfile
           load: true
           platforms: linux/amd64
-          tags: ${{ env.IMAGE }}:scan
+          tags: sample-nodejs:scan
           build-args: |
-            VERSION=${{ env.VERSION }}
-            REVISION=${{ env.SHA }}
+            VERSION=${{ needs.metadata.outputs.version }}
+            REVISION=${{ needs.metadata.outputs.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - name: Trivy image scan (fail on HIGH and CRITICAL)
-        uses: aquasecurity/trivy-action@7b7aa264d83dc58691451798b4d117d53d21edfe
+      - uses: aquasecurity/trivy-action@7b7aa264d83dc58691451798b4d117d53d21edfe
         with:
-          image-ref: ${{ env.IMAGE }}:scan
+          image-ref: sample-nodejs:scan
           format: table
           severity: HIGH,CRITICAL
           exit-code: "1"
           ignore-unfixed: "false"
 
-      - name: Log in to GHCR
-        if: needs.version.outputs.should_push == 'true'
-        uses: docker/login-action@v3
+  publish:
+    name: Publish image
+    needs: [metadata, build-and-scan]
+    if: needs.metadata.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435
+      - uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Docker metadata
-        if: needs.version.outputs.should_push == 'true'
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.IMAGE }}
-          tags: |
-            type=raw,value=${{ env.SHA }}
-            type=raw,value=dev,enable=${{ github.ref == 'refs/heads/dev' }}
-            type=raw,value=${{ env.VERSION }},enable=${{ github.ref == 'refs/heads/main' }}
-            type=raw,value=${{ env.VERSION }},enable=${{ github.event_name == 'workflow_dispatch' }}
-
-      - name: Push image to GHCR
-        if: needs.version.outputs.should_push == 'true'
-        uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83
         with:
           context: ${{ env.APP_DIR }}
-          file: ./${{ env.APP_DIR }}/Dockerfile
+          file: ${{ env.APP_DIR }}/Dockerfile
           push: true
+          platforms: linux/amd64
+          tags: |
+            ${{ needs.metadata.outputs.image }}:${{ needs.metadata.outputs.sha }}
+            ${{ needs.metadata.outputs.image }}:${{ needs.metadata.outputs.version }}
+          build-args: |
+            VERSION=${{ needs.metadata.outputs.version }}
+            REVISION=${{ needs.metadata.outputs.sha }}
+          labels: |
+            org.opencontainers.image.version=${{ needs.metadata.outputs.version }}
+            org.opencontainers.image.revision=${{ needs.metadata.outputs.sha }}
           sbom: true
           provenance: true
-          platforms: linux/amd64
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            VERSION=${{ env.VERSION }}
-            REVISION=${{ env.SHA }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  release:
+    name: Update GitOps state
+    needs: [metadata, publish]
+    if: needs.metadata.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@8f4b7f84864484a7bf31766abe9204da3cbe65b3
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - env:
+          VERSION: ${{ needs.metadata.outputs.version }}
+          SHA: ${{ needs.metadata.outputs.sha }}
+        run: |
+          set -euo pipefail
+          npm version "$VERSION" --no-git-tag-version --prefix "$APP_DIR"
+          sed -i -E "s/^appVersion: .*/appVersion: \"${VERSION}\"/" "$HELM_DIR/Chart.yaml"
+          sed -i -E "s/^(  tag: ).*/\1\"${SHA}\"/" "$HELM_DIR/values.yaml"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$APP_DIR/package.json" "$APP_DIR/package-lock.json" "$HELM_DIR/Chart.yaml" "$HELM_DIR/values.yaml"
+          git commit -m "chore: release v${VERSION} [skip ci]"
+          git tag -a "v${VERSION}" -m "v${VERSION}"
+          git push origin HEAD --tags

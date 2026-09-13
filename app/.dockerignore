@@ -6,4 +6,6 @@ argocd
 helm
 docs
 *.md
+test
+coverage
 .dockerignore

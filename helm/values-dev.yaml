@@ -1,8 +1,0 @@
-# Dev overlay for ArgoCD (dev branch).
-image:
-  repository: ghcr.io/lihi-f/sample-nodejs
-  tag: "dev"
-  pullPolicy: Always
-
-imagePullSecrets:
-  - name: ghcr-pull

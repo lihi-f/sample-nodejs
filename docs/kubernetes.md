@@ -50,7 +50,7 @@ Defaults live in `values.yaml`. Change them there or with `--set` so the chart c
 
 ## Image
 
-A [Dockerfile](../app/Dockerfile) at the repo root builds a Node 22 Alpine image that runs as the `node` user.
+A [Dockerfile](../app/Dockerfile) builds a Node 22 Alpine image that runs as the `node` user.
 
 ```bash
 docker build -t sample-nodejs:1.0.0 .
