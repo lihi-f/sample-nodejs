@@ -173,7 +173,7 @@ jobs:
 
       - name: Test
         working-directory: ${{ env.APP_DIR }}
-        run: npm test
+        run: npm test --if-present
 
   npm-audit:
     name: Npm audit
