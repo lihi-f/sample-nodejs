@@ -75,20 +75,3 @@ Workflow: least-privilege permissions, no credential persistence on scan jobs, H
 1. **Actions** → workflow permissions: allow read/write (needed to bump version and push packages).
 2. **Packages**: after the first push, confirm the package is **private**. Grant `GITHUB_TOKEN` `packages: write` (already set on the docker job).
 3. **Security** → Code scanning: Trivy SARIF appears after a scan (including failed scans, because upload uses `if: always()`).
-
-Pull the image (after login):
-
-```bash
-echo "$CR_PAT" | docker login ghcr.io -u USER --password-stdin
-docker pull ghcr.io/<owner>/<repo>:<tag>
-```
-
-Helm install against GHCR (cluster needs pull access; use an imagePullSecret if the package is private):
-
-```bash
-helm upgrade --install sample-nodejs ./helm \
-  --set image.repository=ghcr.io/<owner>/<repo> \
-  --set image.tag=<semver>
-```
-
-Production deploys should go through **ArgoCD**, not this command. See [gitops.md](gitops.md).
