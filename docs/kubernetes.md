@@ -1,6 +1,6 @@
 # Kubernetes deployment (Helm)
 
-`helm/` **is** the Helm chart for this app (`Chart.yaml` name: `sample-nodejs`). Install it with `helm upgrade --install sample-nodejs ./helm`.
+`helm/` is the Helm chart for this app (`Chart.yaml` name: `sample-nodejs`). Install it with `helm upgrade --install sample-nodejs ./helm`.
 
 This app is a small and stateless Express server. It serves HTTP routes, keeps Prometheus counters in memory, does not use a database or disk, and has health endpoints:
 
@@ -17,7 +17,7 @@ Main route: `GET /my-app`. Metrics: `GET /metrics`.
 - There is no persistent volume.
 - Rolling updates and extra replicas are the natural way to run this.
 
-A StatefulSet would add pod ordinals and volume templates this app does not need. If you later add a database or local disk, it can be changed to a StatefulSet.
+A StatefulSet would add pod ordinals and volume templates this app does not need. If database is added in the future or a local disk, it can be changed to a StatefulSet.
 
 ## Chart layout
 
@@ -37,8 +37,6 @@ helm/                    # chart root
     NOTES.txt
 ```
 
-Defaults live in `values.yaml`. Change them there or with `--set` so the chart can grow without rewriting templates.
-
 | Resource | Role |
 | --- | --- |
 | Deployment | Runs `replicaCount` pods, probes, resources |
@@ -50,7 +48,7 @@ Defaults live in `values.yaml`. Change them there or with `--set` so the chart c
 
 ## Image
 
-A [Dockerfile](../app/Dockerfile) installs production dependencies in a Node 22 build stage and runs the app as the non-root distroless Node 22 runtime. Kubernetes readiness and liveness probes provide health checks; no shell or package manager is included in the production image.
+A [Dockerfile](../app/Dockerfile) installs production dependencies in a Node 22 build stage and runs the app as the non-root distroless Node 22 runtime. Kubernetes readiness and liveness probes provide health checks, no shell or package manager is included in the production image.
 
 ```bash
 docker build -t sample-nodejs:1.0.0 .

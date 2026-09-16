@@ -23,10 +23,10 @@ After all application gates pass on `main`, CI publishes the private GHCR image 
 - `:<semver>` is the human-readable release tag.
 - `:<commit-sha>` is the immutable deployment tag.
 
-CI then commits the next SemVer package/chart version and updates `helm/values.yaml` to the commit-SHA image tag. ArgoCD sees that commit and deploys the exact image that passed CI. The workflow creates the matching annotated Git tag. The default release is a patch bump; a manual workflow run on `main` can choose minor or major.
+CI then commits the next SemVer package/chart version and updates `helm/values.yaml` to the commit-SHA image tag. ArgoCD sees that commit and deploys the exact image that passed CI. The workflow creates the matching annotated Git tag. The default release is a patch bump, and a manual workflow run on `main` can choose minor or major.
 
-There is no `kubectl`, `helm upgrade`, or `argocd app sync` command in CI. GitHub Actions builds and verifies; ArgoCD reconciles the committed Helm desired state.
+GitHub Actions builds and verifies, ArgoCD reconciles the committed Helm desired state.
 
 ## Registry and permissions
 
-GHCR remains private. The publish job has only `packages: write`; the final GitOps-update job has only `contents: write`. All other jobs use the workflow's read-only default. Kubernetes requires the `ghcr-pull` image pull secret described in [GitOps setup](gitops.md).
+GHCR remains private. The publish job has only `packages: write`, the final GitOps-update job has only `contents: write`. All other jobs use the workflow's read-only default. Kubernetes requires the `ghcr-pull` image pull secret described in [GitOps setup](gitops.md).
