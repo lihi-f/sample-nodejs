@@ -77,7 +77,7 @@ jobs:
           set -euo pipefail
           VERSION="$(node -p "require('./${APP_DIR}/package.json').version")"
           RELEASE=false
-          if [ "${{ github.ref }}" = "refs/heads/main" ] && [ "${{ github.event_name }}" != "pull_request" ]; then
+          if [ "${{ github.ref }}" = "refs/heads/dev" ] && [ "${{ github.event_name }}" != "pull_request" ]; then
             VERSION="$(npm version "$BUMP" --no-git-tag-version --prefix "$APP_DIR" | sed 's/^v//')"
             RELEASE=true
           fi
