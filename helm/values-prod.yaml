@@ -1,0 +1,7 @@
+# Production overlay for ArgoCD (main).
+image:
+  repository: ghcr.io/lihi-f/sample-nodejs
+  pullPolicy: IfNotPresent
+
+imagePullSecrets:
+  - name: ghcr-pull

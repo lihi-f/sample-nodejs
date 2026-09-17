@@ -1,0 +1,64 @@
+# Default values for the sample-nodejs chart.
+# Override with --set or a custom values file.
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  # CI/CD commits an immutable commit-SHA tag after publishing to private GHCR.
+  repository: sample-nodejs
+  tag: "d9292369db2739d0dd4a9a6cde9555f02d41c227"
+  pullPolicy: IfNotPresent
+
+# Private GHCR: create a pull secret in the namespace and list it here (see docs/gitops.md).
+imagePullSecrets: []
+
+replicaCount: 2
+
+# Non-secret env. The app currently reads PORT only.
+config:
+  PORT: "8080"
+  NODE_ENV: production
+
+# Optional. Enable when the app needs keys later.
+secret:
+  enabled: false
+  data: {}
+  # EXAMPLE_API_KEY: change-me
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: true
+  className: nginx
+  host: sample-nodejs.local
+  path: /
+  tls: []
+  # - secretName: sample-nodejs-tls
+  #   hosts:
+  #     - sample-nodejs.local
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi
+
+probes:
+  readiness:
+    path: /ready
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  liveness:
+    path: /live
+    initialDelaySeconds: 10
+    periodSeconds: 20
+
+serviceAccount:
+  create: true
+  name: ""

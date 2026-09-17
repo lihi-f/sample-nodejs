@@ -1,0 +1,113 @@
+# Kubernetes deployment (Helm)
+
+`helm/` is the Helm chart for this app (`Chart.yaml` name: `sample-nodejs`). Install it with `helm upgrade --install sample-nodejs ./helm`.
+
+This app is a small and stateless Express server. It serves HTTP routes, keeps Prometheus counters in memory, does not use a database or disk, and has health endpoints:
+
+| Probe | HTTP path | Purpose |
+| --- | --- | --- |
+| Readiness | `/ready` | Only send traffic when the process is up |
+| Liveness | `/live` | Restart the container if the process hangs |
+
+Main route: `GET /my-app`. Metrics: `GET /metrics`.
+
+## Why a Deployment (not a StatefulSet)
+
+- Pods are interchangeable. Nothing depends on a stable hostname or start order.
+- There is no persistent volume.
+- Rolling updates and extra replicas are the natural way to run this.
+
+A StatefulSet would add pod ordinals and volume templates this app does not need. If database is added in the future or a local disk, it can be changed to a StatefulSet.
+
+## Chart layout
+
+```
+helm/                    # chart root
+  Chart.yaml             # name: sample-nodejs, type: application
+  values.yaml
+  .helmignore
+  templates/
+    _helpers.tpl
+    deployment.yaml
+    service.yaml
+    ingress.yaml
+    configmap.yaml
+    secret.yaml          # off by default
+    serviceaccount.yaml
+    NOTES.txt
+```
+
+| Resource | Role |
+| --- | --- |
+| Deployment | Runs `replicaCount` pods, probes, resources |
+| Service | ClusterIP: port 80 → container 8080 |
+| Ingress | Host-based HTTP entry (nginx class by default) |
+| ConfigMap | Non-secret env (`PORT`, `NODE_ENV`) |
+| Secret | Optional |
+| ServiceAccount | Dedicated identity for the pods |
+
+## Image
+
+A [Dockerfile](../Dockerfile) at the repository root installs production dependencies from `app/` in a Node 22 build stage and runs the app as the non-root distroless Node 22 runtime. Kubernetes readiness and liveness probes provide health checks, no shell or package manager is included in the production image.
+
+```bash
+docker build -t sample-nodejs:1.0.0 .
+# CI pushes to ghcr.io/<owner>/<repo>. Point the chart at that image:
+# helm install ... --set image.repository=ghcr.io/<owner>/<repo> --set image.tag=1.0.0
+```
+
+## Install / upgrade
+
+Needs a cluster (`kubectl`), Helm 3, and an Ingress controller if you leave `ingress.enabled: true`.
+
+```bash
+helm upgrade --install sample-nodejs ./helm \
+  --set image.repository=sample-nodejs \
+  --set image.tag=1.0.0
+```
+
+Useful overrides:
+
+```bash
+--set replicaCount=1
+--set ingress.host=sample-nodejs.example.com
+--set ingress.enabled=false
+--set resources.limits.memory=512Mi
+```
+
+Enable a Secret later (the app does not read any secret today):
+
+```yaml
+secret:
+  enabled: true
+  data:
+    EXAMPLE_API_KEY: change-me
+```
+
+Then `envFrom` on the Deployment loads those keys as environment variables.
+
+## Check it
+
+```bash
+kubectl get pods,svc,ingress -l app.kubernetes.io/instance=sample-nodejs
+
+kubectl port-forward svc/sample-nodejs 8080:80
+curl http://127.0.0.1:8080/my-app
+curl http://127.0.0.1:8080/ready
+curl http://127.0.0.1:8080/live
+curl http://127.0.0.1:8080/metrics
+```
+
+Uninstall:
+
+```bash
+helm uninstall sample-nodejs
+```
+
+## Growing later
+
+- reqeuest\limits - need better understanding of application behavior, currently default.
+- **PrometheusRules** alerts based on application metrics.
+- **TLS** on Ingress (`ingress.tls` in values).
+- **Secrets** as above, or External Secrets, for pull secret.
+- **HPA / PDB / NetworkPolicy** when the cluster and traffic justify them.

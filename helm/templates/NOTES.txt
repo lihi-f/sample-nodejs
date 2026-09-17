@@ -1,0 +1,13 @@
+1. Get the application URL by running these commands:
+{{- if .Values.ingress.enabled }}
+  http{{ if .Values.ingress.tls }}s{{ end }}://{{ .Values.ingress.host }}{{ .Values.ingress.path }}my-app
+{{- else }}
+  kubectl port-forward svc/{{ include "sample-nodejs.fullname" . }} 8080:{{ .Values.service.port }}
+  echo http://127.0.0.1:8080/my-app
+{{- end }}
+
+This release is a Deployment (stateless app).
+
+  Ready:   /ready
+  Live:    /live
+  Metrics: /metrics
