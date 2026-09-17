@@ -73,10 +73,27 @@ jobs:
           cache-dependency-path: ${{ env.APP_DIR }}/package-lock.json
       - id: meta
         env:
-          BUMP: ${{ inputs.bump || 'patch' }}
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
+          # Extract the head commit message
+          COMMIT_MSG="$(git log -1 --pretty=%B)"
+
+          # Determine bump type based on conventional commit prefixes
+          if echo "$COMMIT_MSG" | grep -qE '^(feat!|fix!|[a-z]+!):|BREAKING CHANGE'; then
+            BUMP="major"
+          elif echo "$COMMIT_MSG" | grep -qE '^feat(\(.*\))?:'; then
+            BUMP="minor"
+          else
+            BUMP="patch"
+          fi
+
+          # Allow manually triggered runs (workflow_dispatch) to override auto-detection
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            BUMP="${{ github.event.inputs.bump }}"
+          fi
+
+          echo "Determined bump type: $BUMP"
           VERSION="$(node -p "require('./${APP_DIR}/package.json').version")"
           RELEASE=false
           if [ "${{ github.ref }}" = "refs/heads/main" ] && [ "${{ github.event_name }}" != "pull_request" ]; then
