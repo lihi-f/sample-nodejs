@@ -1,0 +1,12 @@
+.git
+.github
+.agents
+.codex
+argocd
+docs
+helm
+node_modules
+app/node_modules
+app/test
+coverage
+*.md

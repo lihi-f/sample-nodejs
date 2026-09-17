@@ -2,7 +2,7 @@ FROM node:22.23.2-bookworm-slim AS dependencies
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
+COPY app/package.json app/package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts \
     && npm cache clean --force
 
@@ -21,7 +21,7 @@ LABEL org.opencontainers.image.title="sample-nodejs" \
       org.opencontainers.image.revision="${REVISION}"
 
 COPY --from=dependencies --chown=nonroot:nonroot /app/node_modules ./node_modules
-COPY --chown=nonroot:nonroot app.js ./app.js
+COPY --chown=nonroot:nonroot app/app.js ./app.js
 
 USER nonroot
 EXPOSE 8080

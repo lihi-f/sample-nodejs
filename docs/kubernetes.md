@@ -48,7 +48,7 @@ helm/                    # chart root
 
 ## Image
 
-A [Dockerfile](../app/Dockerfile) installs production dependencies in a Node 22 build stage and runs the app as the non-root distroless Node 22 runtime. Kubernetes readiness and liveness probes provide health checks, no shell or package manager is included in the production image.
+A [Dockerfile](../Dockerfile) at the repository root installs production dependencies from `app/` in a Node 22 build stage and runs the app as the non-root distroless Node 22 runtime. Kubernetes readiness and liveness probes provide health checks, no shell or package manager is included in the production image.
 
 ```bash
 docker build -t sample-nodejs:1.0.0 .

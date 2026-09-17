@@ -4,10 +4,13 @@
 
 ```
 .
+├── Dockerfile
+├── .dockerignore
 ├── app/
 │   ├── app.js
 │   ├── package.json
-│   └── Dockerfile
+│   ├── package-lock.json
+│   └── test/
 ├── .github/workflows/ci.yml
 ├── helm/
 ├── argocd/
@@ -38,8 +41,18 @@ Pull requests to `main` run tests and security checks. Successful `main` release
 
 Kubernetes deploys through **ArgoCD auto-sync** of the Helm chart in this repo (no deploy job in CI). See [docs/gitops.md](docs/gitops.md).
 
+## Container image
+
+Build from the repository root:
+
+```bash
+docker build -t sample-nodejs:local .
+```
+
+The image installs production dependencies in a Node 22 build stage, then runs only the app and its dependencies in a non-root distroless Node 22 runtime. Kubernetes readiness and liveness probes provide health checks.
+
 ## Prerequisites
 
-- Node.js (v22.1.0)
+- Node.js 22
 - Docker (to build the image)
 - Kubernetes cluster and Helm 3 (to deploy)
