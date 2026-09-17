@@ -21,7 +21,7 @@ register.registerMetric(helloWorldCounter);
 // Define routes
 app.get('/my-app', (req, res) => {
     helloWorldCounter.inc();
-    res.send('Hello, World, minor patch!!!');
+    res.send('Hello, World!');
 });
 
 app.get('/about', (req, res) => {
