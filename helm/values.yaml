@@ -7,7 +7,7 @@ fullnameOverride: ""
 image:
   # CI/CD commits an immutable commit-SHA tag after publishing to private GHCR.
   repository: sample-nodejs
-  tag: "f5264149b72e6c7dd331f895945435c33195b4a0"
+  tag: "f84c83a820dce51810033fad91f1de51df5e775e"
   pullPolicy: IfNotPresent
 
 # Private GHCR: create a pull secret in the namespace and list it here (see docs/gitops.md).
