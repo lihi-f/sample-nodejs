@@ -21,7 +21,4 @@ The end-to-end flow involves the following components:
 
 Watch the video below to see the complete deployment workflow in action:
 
-<video controls width="100%">
-  <source src="../media/Demo - Sample Nodejs.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
+https://github.com/user-attachments/assets/fb8cdc8f-b597-4aa3-950a-38dd89e2b62c
